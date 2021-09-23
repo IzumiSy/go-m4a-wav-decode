@@ -21,14 +21,13 @@ var (
 )
 
 func main() {
-	m4aFile := "/home/izumisy/temp/m4asample.m4a"
+	m4aFile := "/home/izumisy/temp/sample.m4a"
 
 	aacData, err = os.Open(m4aFile)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer aacData.Close()
-	log.Println("Open aac file ", m4aFile)
 
 	info, err := aacData.Stat()
 	if err != nil {
