@@ -57,6 +57,7 @@ func main() {
 				break
 			}
 
+			// 計算されたフレームサイズのぶんだけmdatからデータを読み取る
 			part := make([]byte, *nextFrameSize)
 			readCount, err := io.NewSectionReader(v.Mdat.Reader.Reader, offset, *nextFrameSize).Read(part)
 			if err == io.EOF {
@@ -65,6 +66,7 @@ func main() {
 				panic(err)
 			}
 
+			// mdatから読み取ったデータに対してデコード処理を実行する
 			if pcm, err = d.Decode(part[:readCount]); err != nil {
 				panic(err)
 			}
@@ -105,12 +107,14 @@ func main() {
 	fmt.Println("done")
 }
 
+// stszセクションから取り出したraw aacのフレームサイズ情報を保持する構造体
 type frameSizes struct {
 	frameOffset uint
 	size        uint
 	buffer      []byte
 }
 
+// atom.Mp4Readerを用いてstszセクションのデータを読み取り、ヘッダをスキップしたデータ部をframeSizes構造体として抜き出す
 func newFrameSizes(reader *atom.Mp4Reader) (*frameSizes, error) {
 	const stszHeaderOffset = 12 + 8
 
@@ -130,6 +134,8 @@ func newFrameSizes(reader *atom.Mp4Reader) (*frameSizes, error) {
 	}, nil
 }
 
+// stszのデータ部にはビッグエンディアンで4バイトごとのデータとして格納されている
+// binary.BigEndian.Uint32で変換してint64に変換することで10進数データとしてフレームサイズが計算できる。
 func (v *frameSizes) Next() *int64 {
 	const uint32byteSize = 4
 
