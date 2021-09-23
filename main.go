@@ -48,19 +48,14 @@ func main() {
 	defer d.Close()
 
 	const mdatOffset = 40
+	const stszHeaderOffset = 12 + 8
 
 	stsz := v.Moov.Traks[0].Mdia.Minf.Stbl.Stsz
-	fmt.Printf("stsz size: %d\n", stsz.Size)
-	fmt.Printf("stsz offset: %d\n", stsz.Start)
-	fmt.Printf("stsz sample count: %d\n", stsz.SampleCount)
-	fmt.Printf("stsz sample size: %d\n", stsz.SampleSize)
-	fmt.Println("------")
 	stszBuffer := make([]byte, stsz.Size)
-	headerOffset := 12 + 8
 	if _, err := io.NewSectionReader(
 		stsz.Reader.Reader,
-		stsz.Start+int64(headerOffset),
-		stsz.Size-int64(headerOffset),
+		stsz.Start+int64(stszHeaderOffset),
+		stsz.Size-int64(stszHeaderOffset),
 	).Read(stszBuffer); err != nil {
 		panic(err)
 	}
