@@ -31,6 +31,8 @@ func main() {
 		panic(err)
 	}
 
+	// AAC LC/44100Hz/2channelsなASCの設定でfdk-aacのデコーダを初期化
+	// (Ref: https://wiki.multimedia.cx/index.php/MPEG-4_Audio#Audio_Specific_Config)
 	d := fdkaac.NewAacDecoder()
 	if err := d.InitRaw([]byte{0x12, 0x10}); err != nil {
 		panic(err)
