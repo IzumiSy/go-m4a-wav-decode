@@ -1,0 +1,16 @@
+# github.com/IzumiSy/go-fdkaac v0.0.0-20210916054258-b0fe1097f338
+## explicit
+github.com/IzumiSy/go-fdkaac/fdkaac
+# github.com/alfg/mp4 v0.0.0-20210728035756-55ea58c08aeb => ../mp4
+## explicit; go 1.12
+github.com/alfg/mp4
+github.com/alfg/mp4/atom
+# github.com/cryptix/wav v0.0.0-20180415113528-8bdace674401
+## explicit
+github.com/cryptix/wav
+# github.com/winlinvip/go-aresample v0.0.0-20160706092116-c1dbed835c9e
+## explicit
+github.com/winlinvip/go-aresample/aresample
+# github.com/winlinvip/go-fdkaac v0.0.0-20180716140705-2654f5a0cc2e
+## explicit
+# github.com/alfg/mp4 => ../mp4
