@@ -4,82 +4,72 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
 	"os"
 
 	"github.com/IzumiSy/go-fdkaac/fdkaac"
 	"github.com/alfg/mp4"
+	"github.com/alfg/mp4/atom"
 	"github.com/cryptix/wav"
-)
-
-var (
-	aacData *os.File
-	part    []byte
-	err     error
-	count   int
-	pcm     []byte
 )
 
 func main() {
 	m4aFile := "/home/izumisy/temp/sample.m4a"
 
-	aacData, err = os.Open(m4aFile)
+	m4aData, err := os.Open(m4aFile)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
-	defer aacData.Close()
+	defer m4aData.Close()
 
-	info, err := aacData.Stat()
+	info, err := m4aData.Stat()
 	if err != nil {
 		panic(err)
 	}
 
-	v, err := mp4.OpenFromReader(aacData, info.Size())
+	v, err := mp4.OpenFromReader(m4aData, info.Size())
 	if err != nil {
 		panic(err)
 	}
 
 	d := fdkaac.NewAacDecoder()
 	if err := d.InitRaw([]byte{0x12, 0x10}); err != nil {
-		log.Fatal("init decoder failed: ", err)
-		return
+		panic(err)
 	}
 	defer d.Close()
 
-	const mdatOffset = 40
-	const stszHeaderOffset = 12 + 8
-
-	stsz := v.Moov.Traks[0].Mdia.Minf.Stbl.Stsz
-	stszBuffer := make([]byte, stsz.Size)
-	if _, err := io.NewSectionReader(
-		stsz.Reader.Reader,
-		stsz.Start+int64(stszHeaderOffset),
-		stsz.Size-int64(stszHeaderOffset),
-	).Read(stszBuffer); err != nil {
+	frameSizes, err := newFrameSizes(v)
+	if err != nil {
 		panic(err)
 	}
 
 	pcmReader, pcmWriter := io.Pipe()
 	defer pcmReader.Close()
 
+	const mdatOffset = 40
+
+	var pcm []byte
 	go func() {
 		offset := int64(mdatOffset)
-		for frameCount := 0; frameCount < len(stszBuffer); frameCount += 4 {
-			frameSize := int64(binary.BigEndian.Uint32(stszBuffer[frameCount : frameCount+4]))
 
-			part := make([]byte, frameSize)
-			readCount, err := io.NewSectionReader(v.Mdat.Reader.Reader, offset, frameSize).Read(part)
+		for {
+			nextFrameSize := frameSizes.Next()
+			if nextFrameSize == nil {
+				break
+			}
+
+			part := make([]byte, *nextFrameSize)
+			readCount, err := io.NewSectionReader(v.Mdat.Reader.Reader, offset, *nextFrameSize).Read(part)
 			if err == io.EOF {
 				break
 			} else if err != nil {
-				log.Fatal("read failed: ", err)
+				panic(err)
 			}
 
 			if pcm, err = d.Decode(part[:readCount]); err != nil {
-				log.Fatal("decode failed: ", err)
+				panic(err)
 			}
 
-			offset += frameSize
+			offset += *nextFrameSize
 			if len(pcm) == 0 {
 				continue
 			}
@@ -93,7 +83,7 @@ func main() {
 
 	wavFile, err := os.Create("result.wav")
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	defer wavFile.Close()
 
@@ -105,12 +95,47 @@ func main() {
 	}
 	wavWriter, err := meta.NewWriter(wavFile)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	defer wavWriter.Close()
 	if _, err := io.Copy(wavWriter, pcmReader); err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	fmt.Println("done")
+}
+
+type frameSizes struct {
+	frameOffset uint
+	size        uint
+	buffer      []byte
+}
+
+func newFrameSizes(reader *atom.Mp4Reader) (*frameSizes, error) {
+	const stszHeaderOffset = 12 + 8
+
+	stsz := reader.Moov.Traks[0].Mdia.Minf.Stbl.Stsz
+	stszBuffer := make([]byte, stsz.Size)
+	if _, err := io.NewSectionReader(
+		stsz.Reader.Reader,
+		stsz.Start+int64(stszHeaderOffset),
+		stsz.Size-int64(stszHeaderOffset),
+	).Read(stszBuffer); err != nil {
+		return nil, err
+	}
+
+	return &frameSizes{
+		frameOffset: 0,
+		buffer:      stszBuffer,
+	}, nil
+}
+
+func (v *frameSizes) Next() *int64 {
+	if len(v.buffer) > int(v.frameOffset) {
+		return nil
+	}
+
+	frameSize := int64(binary.BigEndian.Uint32(v.buffer[v.frameOffset : v.frameOffset+4]))
+	v.frameOffset += 4
+	return &frameSize
 }
