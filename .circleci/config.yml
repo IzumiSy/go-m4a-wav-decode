@@ -17,6 +17,7 @@ jobs:
           key: fdkaac-lib-artifact-{{ checksum "libfdk-deps-checksum" }}
           paths:
             - lib/go-fdkaac/fdkaac-lib-objs
+            - lib/go-fdkaac/fdkaac-lib/libfdk-aac.la
 
 workdlows:
   build:
