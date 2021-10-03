@@ -8,7 +8,7 @@ jobs:
     steps:
       - checkout
       - run: make dep
-      - run: (cd lib/go-fdkaac/fdkaac-lib && git rev-parse HEAD) > libfdk-deps-checksum
+      - run: (cd lib/go-fdkaac/fdkaac-lib && git rev-parse HEAD) | tee libfdk-deps-checksum
       - restore_cache:
           keys:
             - fdkaac-lib-artifact-{{ checksum "libfdk-deps-checksum" }}
