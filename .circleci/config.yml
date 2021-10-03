@@ -5,16 +5,17 @@ jobs:
       - image: circleci/golang:1.16
     environment:
       GO111MODULE: "on"
+      CACHE_VERSION: "v1"
     steps:
       - checkout
       - run: make dep
       - run: (cd lib/go-fdkaac/fdkaac-lib && git rev-parse HEAD) | tee libfdk-deps-checksum
       - restore_cache:
           keys:
-            - fdkaac-lib-artifact-{{ checksum "libfdk-deps-checksum" }}
+            - fdkaac-lib-artifact-{{ checksum "libfdk-deps-checksum" }}-{{ .Environment.CACHE_VERSION }}
       - run: make
       - save_cache:
-          key: fdkaac-lib-artifact-{{ checksum "libfdk-deps-checksum" }}
+          key: fdkaac-lib-artifact-{{ checksum "libfdk-deps-checksum" }}-{{ .Environment.CACHE_VERSION }}
           paths:
             - lib/go-fdkaac/fdkaac-lib-objs
             - lib/go-fdkaac/fdkaac-lib/libfdk-aac.la
