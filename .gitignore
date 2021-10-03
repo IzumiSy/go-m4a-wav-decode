@@ -2,7 +2,7 @@
 *.wav
 
 # Binaries for programs and plugins
-main
+decoder
 *.exe
 *.exe~
 *.dll
