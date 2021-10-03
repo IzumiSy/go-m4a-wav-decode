@@ -10,12 +10,13 @@ jobs:
       - checkout
       - run: make dep
       - run: (cd lib/go-fdkaac/fdkaac-lib && git rev-parse HEAD) | tee libfdk-deps-checksum
+      - run: echo $CACHE_VERSION | tee cache-version
       - restore_cache:
           keys:
-            - fdkaac-lib-artifact-{{ checksum "libfdk-deps-checksum" }}-{{ .Environment.CACHE_VERSION }}
+            - fdkaac-lib-artifact-{{ checksum "libfdk-deps-checksum" }}-{{ checksum "cache-version" }}
       - run: make
       - save_cache:
-          key: fdkaac-lib-artifact-{{ checksum "libfdk-deps-checksum" }}-{{ .Environment.CACHE_VERSION }}
+          key: fdkaac-lib-artifact-{{ checksum "libfdk-deps-checksum" }}-{{ checksum "cache-version" }}
           paths:
             - lib/go-fdkaac/fdkaac-lib-objs
             - lib/go-fdkaac/fdkaac-lib/libfdk-aac.la
