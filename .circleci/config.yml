@@ -18,8 +18,7 @@ jobs:
       - save_cache:
           key: fdkaac-lib-artifact-{{ checksum "libfdk-deps-checksum" }}-{{ checksum "cache-version" }}
           paths:
-            - lib/go-fdkaac/fdkaac-lib-objs
-            - lib/go-fdkaac/fdkaac-lib/libfdk-aac.la
+            - lib/go-fdkaac/fdkaac-lib
 
 workdlows:
   build:
