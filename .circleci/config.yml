@@ -7,13 +7,14 @@ jobs:
       GO111MODULE: "on"
     steps:
       - checkout
-      - run: ls -alR lib/go-fdkaac/fdkaac-lib/libAACdec/src > depseed
+      - run: make dep
+      - run: (cd lib/go-fdkaac/fdkaac-lib && git rev-parse HEAD) > libfdk-deps-checksum
       - restore_cache:
           keys:
-            - fdkaac-lib-artifact-{{ checksum "depseed" }}
+            - fdkaac-lib-artifact-{{ checksum "libfdk-deps-checksum" }}
       - run: make
       - save_cache:
-          key: fdkaac-lib-artifact-{{ checksum "depseed" }}
+          key: fdkaac-lib-artifact-{{ checksum "libfdk-deps-checksum" }}
           paths:
             - lib/go-fdkaac/fdkaac-lib-objs
 
