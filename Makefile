@@ -1,9 +1,10 @@
-.PHONY: build dep
+.PHONY: build dep build
 
 dep:
-	git submodule add -f https://github.com/winlinvip/fdk-aac.git vendor/github.com/IzumiSy/go-fdkaac/fdk-aac-lib
+	git submodule update --init --recursive
 
-build: dep
-	sudo apt install autoconf libtool
-	cd vendor/github.com/IzumiSy/go-fdkaac/fdk-aac-lib && \
-		bash autogen.sh && ./configure --prefix=`pwd`/objs && make && make install && cd -
+setup: dep
+	cd lib/go-fdkaac && ./build.sh && cd -
+
+build: main.go
+	go build main.go

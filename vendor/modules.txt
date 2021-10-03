@@ -1,4 +1,4 @@
-# github.com/IzumiSy/go-fdkaac v0.0.0-20210916054258-b0fe1097f338
+# github.com/IzumiSy/go-fdkaac v0.0.0-20211001043816-e867cd4a8d10
 ## explicit
 github.com/IzumiSy/go-fdkaac/fdkaac
 # github.com/alfg/mp4 v0.0.0-20210728035756-55ea58c08aeb => ../mp4

@@ -1,3 +1,4 @@
-[submodule "vendor/github.com/IzumiSy/go-fdkaac/fdk-aac-lib"]
-	path = vendor/github.com/IzumiSy/go-fdkaac/fdk-aac-lib
-	url = https://github.com/winlinvip/fdk-aac.git
+
+[submodule "lib/go-fdkaac"]
+	path = lib/go-fdkaac
+	url = git@github.com:IzumiSy/go-fdkaac.git

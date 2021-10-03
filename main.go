@@ -6,10 +6,10 @@ import (
 	"io"
 	"os"
 
-	"github.com/IzumiSy/go-fdkaac/fdkaac"
 	"github.com/alfg/mp4"
 	"github.com/alfg/mp4/atom"
 	"github.com/cryptix/wav"
+	fdkaac "go-m4a-wav-decode/lib/go-fdkaac"
 )
 
 func main() {

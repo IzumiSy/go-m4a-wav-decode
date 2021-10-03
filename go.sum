@@ -1,5 +1,3 @@
-github.com/IzumiSy/go-fdkaac v0.0.0-20210916054258-b0fe1097f338 h1:FAVpCllwEhW78aDXja0QyHUPF9Ju6wg6yV3IdXt/EqQ=
-github.com/IzumiSy/go-fdkaac v0.0.0-20210916054258-b0fe1097f338/go.mod h1:jmxJwIPbDUrofy2H3d28lYzz+RL9qt8GltDAAJ/mlb0=
 github.com/cheekybits/is v0.0.0-20150225183255-68e9c0620927 h1:SKI1/fuSdodxmNNyVBR8d7X/HuLnRpvvFO0AgyQk764=
 github.com/cheekybits/is v0.0.0-20150225183255-68e9c0620927/go.mod h1:h/aW8ynjgkuj+NQRlZcDbAbM1ORAbXjXX77sX7T289U=
 github.com/cryptix/wav v0.0.0-20180415113528-8bdace674401 h1:rZ+OHHkwlkYALTEd6AYXSL92K/SEc4fkz+TfweIwu6A=

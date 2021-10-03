@@ -4,10 +4,11 @@ Example for M4A-WAV conversion using [go-fdkaac](https://github.com/winlinvip/go
 ## Setup
 ```sh
 $ make dep
+$ make setup
 $ make build
 ```
 
-## RUn
+## Run
 ```sh
-$ go run main.go
+$ ./main
 ```
