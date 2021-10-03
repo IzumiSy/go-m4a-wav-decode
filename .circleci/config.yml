@@ -9,13 +9,13 @@ jobs:
       - checkout
       - run: ls -alR lib/go-fdkaac/fdkaac-lib/libAACdec/src > depseed
       - restore_cache:
-        keys:
-          - fdkaac-lib-artifact-{{ checksum "depseed" }}
+          keys:
+            - fdkaac-lib-artifact-{{ checksum "depseed" }}
       - run: make
       - save_cache:
-        key: fdkaac-lib-artifact-{{ checksum "depseed" }}
-        paths:
-          - lib/go-fdkaac/fdkaac-lib-objs
+          key: fdkaac-lib-artifact-{{ checksum "depseed" }}
+          paths:
+            - lib/go-fdkaac/fdkaac-lib-objs
 
 workdlows:
   build:
