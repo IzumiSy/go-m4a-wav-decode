@@ -143,7 +143,7 @@ func newFrameSizes(reader *atom.Mp4Reader) (*frameSizes, error) {
 func (v *frameSizes) Next() *int64 {
 	const uint32byteSize = 4
 
-	if len(v.buffer) > int(v.frameOffset) {
+	if len(v.buffer) < int(v.frameOffset) {
 		return nil
 	}
 
