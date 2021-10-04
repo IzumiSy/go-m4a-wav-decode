@@ -13,11 +13,20 @@ jobs:
       - restore_cache:
           keys:
             - fdkaac-lib-artifact-{{ checksum "libfdk-deps-checksum" }}-{{ checksum "cache-version" }}
+            - sample-m4a-file
       - run: make
       - save_cache:
           key: fdkaac-lib-artifact-{{ checksum "libfdk-deps-checksum" }}-{{ checksum "cache-version" }}
           paths:
             - lib/go-fdkaac/fdkaac-lib
+      - run: wget -nc https://filesamples.com/samples/audio/m4a/sample1.m4a
+      - save_cache:
+          key: sample-m4a-file
+          paths:
+            - sample1.m4a
+      - run: ./decoder sample1.m4a
+      - store_artifacts:
+          path: result.wav
 
 workdlows:
   build:

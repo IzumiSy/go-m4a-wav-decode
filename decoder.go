@@ -2,20 +2,22 @@ package main
 
 import (
 	"encoding/binary"
+	"flag"
 	"fmt"
 	"io"
 	"os"
 
+	fdkaac "go-m4a-wav-decode/lib/go-fdkaac"
+
 	"github.com/alfg/mp4"
 	"github.com/alfg/mp4/atom"
 	"github.com/cryptix/wav"
-	fdkaac "go-m4a-wav-decode/lib/go-fdkaac"
 )
 
 func main() {
-	m4aFile := "/home/izumisy/temp/sample.m4a"
+	flag.Parse()
 
-	m4aData, err := os.Open(m4aFile)
+	m4aData, err := os.Open(flag.Arg(0))
 	if err != nil {
 		panic(err)
 	}
