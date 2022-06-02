@@ -116,7 +116,8 @@ func newFrameSizes(reader io.ReadSeeker) (*frameSizes, uint64, error) {
 			break
 		}
 	}
-	println(len(info.Tracks))
+	fmt.Printf("TrackID: %d\n", targetTrack.TrackID)
+	fmt.Printf("Codec: %d\n", targetTrack.Codec)
 
 	var mdatOffset uint64 = 0
 	if results, err := mp4.ExtractBox(reader, nil, mp4.BoxPath{mp4.BoxTypeMdat()}); err != nil {
