@@ -1,9 +1,8 @@
 VERSION 0.6
-FROM golang:1.17-alpine3.14
+FROM golang:1.18-bullseye
 WORKDIR /decoder
 
 deps:
-  RUN apk add --no-cache build-base
   COPY go.mod go.sum .
   RUN go mod download
   SAVE IMAGE --cache-hint
