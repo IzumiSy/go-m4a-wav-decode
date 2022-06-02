@@ -1,3 +1,5 @@
+vendor/
+
 # audio file
 *.wav
 

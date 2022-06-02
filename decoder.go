@@ -1,69 +1,53 @@
 package main
 
 import (
-	"encoding/binary"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 
-	fdkaac "go-m4a-wav-decode/lib/go-fdkaac"
+	fdkaac "github.com/IzumiSy/go-fdkaac"
+	mp4 "github.com/abema/go-mp4"
 
-	"github.com/alfg/mp4"
-	"github.com/alfg/mp4/atom"
 	"github.com/cryptix/wav"
 )
 
 func main() {
 	flag.Parse()
 
-	m4aData, err := os.Open(flag.Arg(0))
+	file, err := os.Open(flag.Arg(0))
 	if err != nil {
 		panic(err)
 	}
-	defer m4aData.Close()
+	defer file.Close()
 
-	info, err := m4aData.Stat()
-	if err != nil {
-		panic(err)
-	}
-
-	v, err := mp4.OpenFromReader(m4aData, info.Size())
+	frameSizes, mdatOffset, err := newFrameSizes(file)
 	if err != nil {
 		panic(err)
 	}
 
 	// AAC LC/44100Hz/2channelsなASCの設定でfdk-aacのデコーダを初期化
 	// (Ref: https://wiki.multimedia.cx/index.php/MPEG-4_Audio#Audio_Specific_Config)
-	d := fdkaac.NewAacDecoder()
-	if err := d.InitRaw([]byte{0x12, 0x10}); err != nil {
+	decoder := fdkaac.NewAacDecoder()
+	if err := decoder.InitRaw([]byte{0x12, 0x10}); err != nil {
 		panic(err)
 	}
-	defer d.Close()
-
-	frameSizes, err := newFrameSizes(v)
-	if err != nil {
-		panic(err)
-	}
+	defer decoder.Close()
 
 	pcmReader, pcmWriter := io.Pipe()
 	defer pcmReader.Close()
 
-	const mdatOffset = 40
-
 	var pcm []byte
 	go func() {
-		offset := int64(mdatOffset)
+		offset := uint32(mdatOffset)
 
 		for {
 			nextFrameSize := frameSizes.Next()
-			if nextFrameSize == nil {
-				break
-			}
 
 			// 計算されたフレームサイズのぶんだけmdatからデータを読み取る
-			part := make([]byte, *nextFrameSize)
-			readCount, err := io.NewSectionReader(v.Mdat.Reader.Reader, offset, *nextFrameSize).Read(part)
+			part := make([]byte, nextFrameSize)
+			readCount, err := io.NewSectionReader(file, int64(offset), int64(nextFrameSize)).Read(part)
 			if err == io.EOF {
 				break
 			} else if err != nil {
@@ -71,16 +55,14 @@ func main() {
 			}
 
 			// mdatから読み取ったデータに対してデコード処理を実行する
-			if pcm, err = d.Decode(part[:readCount]); err != nil {
+			if err = decoder.Decode(part[:readCount], pcmWriter); err != nil {
 				panic(err)
 			}
 
-			offset += *nextFrameSize
+			offset += nextFrameSize
 			if len(pcm) == 0 {
 				continue
 			}
-
-			pcmWriter.Write(pcm)
 		}
 
 		fmt.Println("AAC to PCM conversion finished")
@@ -113,41 +95,46 @@ func main() {
 
 // stszセクションから取り出したraw aacのフレームサイズ情報を保持する構造体
 type frameSizes struct {
-	frameOffset uint
-	size        uint
-	buffer      []byte
+	samples mp4.Samples
+	index   int
 }
 
 // atom.Mp4Readerを用いてstszセクションのデータを読み取り、ヘッダをスキップしたデータ部をframeSizes構造体として抜き出す
-func newFrameSizes(reader *atom.Mp4Reader) (*frameSizes, error) {
-	const stszHeaderOffset = 12 + 8
+func newFrameSizes(reader io.ReadSeeker) (*frameSizes, uint64, error) {
+	info, err := mp4.Probe(reader)
+	if err != nil {
+		panic(err)
+	}
 
-	stsz := reader.Moov.Traks[0].Mdia.Minf.Stbl.Stsz
-	stszBuffer := make([]byte, stsz.Size)
-	if _, err := io.NewSectionReader(
-		stsz.Reader.Reader,
-		stsz.Start+int64(stszHeaderOffset),
-		stsz.Size-int64(stszHeaderOffset),
-	).Read(stszBuffer); err != nil {
-		return nil, err
+	var targetTrack *mp4.Track
+	for _, track := range info.Tracks {
+		if track.Codec == mp4.CodecMP4A {
+			targetTrack = track
+			break
+		}
+	}
+
+	var mdatOffset uint64 = 0
+	if results, err := mp4.ExtractBox(reader, nil, mp4.BoxPath{mp4.BoxTypeMdat()}); err != nil {
+		return nil, 0, err
+	} else if len(results) != 1 {
+		// mdatが1つ以上あるわけがないのであるとしたらなにかがおかしい
+		return nil, 0, errors.New("too many mdat")
+	} else {
+		// mdatのオフセットからさらにメタデータを含むヘッダサイズ分を飛ばして
+		// 実際のメディアデータのバイナリが始まる位置をmdatOffsetとする
+		mdatOffset = results[0].Offset + results[0].HeaderSize
 	}
 
 	return &frameSizes{
-		frameOffset: 0,
-		buffer:      stszBuffer,
-	}, nil
+		samples: targetTrack.Samples,
+		index:   -1,
+	}, mdatOffset, nil
 }
 
 // stszのデータ部にはビッグエンディアンで4バイトごとのデータとして格納されている
 // binary.BigEndian.Uint32で変換してint64に変換することで10進数データとしてフレームサイズが計算できる。
-func (v *frameSizes) Next() *int64 {
-	const uint32byteSize = 4
-
-	if len(v.buffer) < int(v.frameOffset) {
-		return nil
-	}
-
-	frameSize := int64(binary.BigEndian.Uint32(v.buffer[v.frameOffset : v.frameOffset+uint32byteSize]))
-	v.frameOffset += uint32byteSize
-	return &frameSize
+func (v *frameSizes) Next() uint32 {
+	v.index++
+	return v.samples[v.index].Size
 }
