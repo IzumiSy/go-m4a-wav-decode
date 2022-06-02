@@ -1,7 +1,7 @@
 # go-aac-decode
-Example for M4A-WAV conversion using [go-fdkaac](https://github.com/winlinvip/go-fdkaac)
+Example for M4A-WAV conversion using [IzumiSy/go-fdkaac](https://github.com/IzumiSy/go-fdkaac)
 
+## build
 ```sh
-$ make
-$ ./decoder
+$ earthly +build
 ```
