@@ -44,10 +44,13 @@ func main() {
 
 		for {
 			nextFrameSize := frameSizes.Next()
+			if nextFrameSize == nil {
+				break
+			}
 
 			// 計算されたフレームサイズのぶんだけmdatからデータを読み取る
-			part := make([]byte, nextFrameSize)
-			readCount, err := io.NewSectionReader(file, int64(offset), int64(nextFrameSize)).Read(part)
+			part := make([]byte, *nextFrameSize)
+			readCount, err := io.NewSectionReader(file, int64(offset), int64(*nextFrameSize)).Read(part)
 			if err == io.EOF {
 				break
 			} else if err != nil {
@@ -59,7 +62,7 @@ func main() {
 				panic(err)
 			}
 
-			offset += nextFrameSize
+			offset += *nextFrameSize
 			if len(pcm) == 0 {
 				continue
 			}
@@ -113,6 +116,7 @@ func newFrameSizes(reader io.ReadSeeker) (*frameSizes, uint64, error) {
 			break
 		}
 	}
+	println(len(info.Tracks))
 
 	var mdatOffset uint64 = 0
 	if results, err := mp4.ExtractBox(reader, nil, mp4.BoxPath{mp4.BoxTypeMdat()}); err != nil {
@@ -128,13 +132,17 @@ func newFrameSizes(reader io.ReadSeeker) (*frameSizes, uint64, error) {
 
 	return &frameSizes{
 		samples: targetTrack.Samples,
-		index:   -1,
+		index:   0,
 	}, mdatOffset, nil
 }
 
 // stszのデータ部にはビッグエンディアンで4バイトごとのデータとして格納されている
 // binary.BigEndian.Uint32で変換してint64に変換することで10進数データとしてフレームサイズが計算できる。
-func (v *frameSizes) Next() uint32 {
+func (v *frameSizes) Next() *uint32 {
+	if len(v.samples) <= v.index {
+		return nil
+	}
+
 	v.index++
-	return v.samples[v.index].Size
+	return &v.samples[v.index-1].Size
 }
