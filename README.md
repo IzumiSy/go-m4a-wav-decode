@@ -4,4 +4,5 @@ Example for M4A-WAV conversion using [IzumiSy/go-fdkaac](https://github.com/Izum
 ## build
 ```sh
 $ earthly +build
+$ ./build/decoder
 ```
