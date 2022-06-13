@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 
 	fdkaac "github.com/IzumiSy/go-fdkaac"
@@ -14,30 +16,63 @@ import (
 )
 
 var (
-	inputFile    string
-	samplingRate uint64
+	inputFilePath string
+	metaFilePath  string
+	samplingRate  uint64
 )
 
+type metaInfo struct {
+	FrameSizes []uint64 `json:"frame_sizes"`
+	Offset     uint64   `json:"absolute_offset"`
+}
+
 func main() {
-	flag.StringVar(&inputFile, "input", "", "input file")
+	flag.StringVar(&inputFilePath, "input", "", "input file")
+	flag.StringVar(&metaFilePath, "meta", "", "meta file")
 	flag.Uint64Var(&samplingRate, "sampleRate", 44100, "sampling rate in converting into wav")
 	flag.Parse()
 
-	file, err := os.Open(inputFile)
+	if inputFilePath == "" {
+		fmt.Println("input file is required")
+		os.Exit(1)
+	}
+
+	file, err := os.Open(inputFilePath)
 	if err != nil {
 		panic(err)
 	}
 	defer file.Close()
 
-	frameSizes, mdatOffset, err := newFrameSizes(file)
-	if err != nil {
-		panic(err)
+	var (
+		frameSizes *frameSizes
+		mdatOffset uint64
+	)
+
+	// 外部から入力されるメタデータのJSONファイルがあればそれを使って
+	// abema/go-mp4を用いたメタデータの読み取りはスキップする
+	if metaFilePath != "" {
+		metaFile, err := ioutil.ReadFile(metaFilePath)
+		if err != nil {
+			panic(err)
+		}
+
+		metaInfo := metaInfo{}
+		if err := json.Unmarshal([]byte(metaFile), &metaInfo); err != nil {
+			panic(err)
+		}
+
+		frameSizes, mdatOffset = newFrameSizesByMeta(metaInfo)
+	} else {
+		frameSizes, mdatOffset, err = newFrameSizes(file)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	// AAC LC/44100Hz/2channelsなASCの設定でfdk-aacのデコーダを初期化
 	// (Ref: https://wiki.multimedia.cx/index.php/MPEG-4_Audio#Audio_Specific_Config)
 	decoder := fdkaac.NewAacDecoder()
-	if err := decoder.InitRaw([]byte{0x12, 0x10}); err != nil {
+	if err := decoder.InitRaw([]byte{0x12, 0x88}); err != nil {
 		panic(err)
 	}
 	defer decoder.Close()
@@ -100,7 +135,7 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Println("done")
+	fmt.Println("WAV file written out")
 }
 
 // stszセクションから取り出したraw aacのフレームサイズ情報を保持する構造体
@@ -142,6 +177,21 @@ func newFrameSizes(reader io.ReadSeeker) (*frameSizes, uint64, error) {
 		samples: targetTrack.Samples,
 		index:   0,
 	}, mdatOffset, nil
+}
+
+// 外部のファイルからframeSizesの構造体を生成する
+func newFrameSizesByMeta(meta metaInfo) (*frameSizes, uint64) {
+	samples := []*mp4.Sample{}
+	for _, size := range meta.FrameSizes {
+		samples = append(samples, &mp4.Sample{
+			Size: uint32(size),
+		})
+	}
+
+	return &frameSizes{
+		samples: mp4.Samples(samples),
+		index:   0,
+	}, meta.Offset
 }
 
 // stszのデータ部にはビッグエンディアンで4バイトごとのデータとして格納されている
