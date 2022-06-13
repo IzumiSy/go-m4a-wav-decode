@@ -13,10 +13,17 @@ import (
 	"github.com/cryptix/wav"
 )
 
+var (
+	inputFile    string
+	samplingRate uint64
+)
+
 func main() {
+	flag.StringVar(&inputFile, "input", "", "input file")
+	flag.Uint64Var(&samplingRate, "sampleRate", 44100, "sampling rate in converting into wav")
 	flag.Parse()
 
-	file, err := os.Open(flag.Arg(0))
+	file, err := os.Open(inputFile)
 	if err != nil {
 		panic(err)
 	}
@@ -81,7 +88,7 @@ func main() {
 	// cryptix/wav supports only Monoral audio.
 	meta := wav.File{
 		Channels:        1,
-		SampleRate:      44100,
+		SampleRate:      uint32(samplingRate),
 		SignificantBits: 32,
 	}
 	wavWriter, err := meta.NewWriter(wavFile)
