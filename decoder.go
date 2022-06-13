@@ -69,10 +69,19 @@ func main() {
 		}
 	}
 
-	// AAC LC/44100Hz/2channelsなASCの設定でfdk-aacのデコーダを初期化
-	// (Ref: https://wiki.multimedia.cx/index.php/MPEG-4_Audio#Audio_Specific_Config)
+	descriptor, err := getASCDescriptor(file)
+	if err != nil {
+		panic(err)
+	} else if len(descriptor.Data) == 0 {
+		panic(errors.New("no ASC available"))
+	}
+	fmt.Printf("ASC: 0x%X 0x%X\n", descriptor.Data[0], descriptor.Data[1])
+
 	decoder := fdkaac.NewAacDecoder()
-	if err := decoder.InitRaw([]byte{0x12, 0x88}); err != nil {
+	if err := decoder.InitRaw([]byte{
+		descriptor.Data[0],
+		descriptor.Data[1],
+	}); err != nil {
 		panic(err)
 	}
 	defer decoder.Close()
@@ -144,6 +153,17 @@ type frameSizes struct {
 	index   int
 }
 
+// stszのデータ部にはビッグエンディアンで4バイトごとのデータとして格納されている
+// binary.BigEndian.Uint32で変換してint64に変換することで10進数データとしてフレームサイズが計算できる。
+func (v *frameSizes) Next() *uint32 {
+	if len(v.samples) <= v.index {
+		return nil
+	}
+
+	v.index++
+	return &v.samples[v.index-1].Size
+}
+
 // atom.Mp4Readerを用いてstszセクションのデータを読み取り、ヘッダをスキップしたデータ部をframeSizes構造体として抜き出す
 func newFrameSizes(reader io.ReadSeeker) (*frameSizes, uint64, error) {
 	info, err := mp4.Probe(reader)
@@ -194,13 +214,37 @@ func newFrameSizesByMeta(meta metaInfo) (*frameSizes, uint64) {
 	}, meta.Offset
 }
 
-// stszのデータ部にはビッグエンディアンで4バイトごとのデータとして格納されている
-// binary.BigEndian.Uint32で変換してint64に変換することで10進数データとしてフレームサイズが計算できる。
-func (v *frameSizes) Next() *uint32 {
-	if len(v.samples) <= v.index {
-		return nil
+// esdsからASCの値を含むデスクリプタを取り出す
+func getASCDescriptor(reader io.ReadSeeker) (*mp4.Descriptor, error) {
+	var ascDescriptor *mp4.Descriptor
+
+	if results, err := mp4.ExtractBoxWithPayload(reader, nil, mp4.BoxPath{
+		mp4.BoxTypeMoov(),
+		mp4.BoxTypeTrak(),
+		mp4.BoxTypeMdia(),
+		mp4.BoxTypeMinf(),
+		mp4.BoxTypeStbl(),
+		mp4.BoxTypeStsd(),
+		mp4.BoxTypeMp4a(),
+		mp4.BoxTypeEsds(),
+	}); err != nil {
+		return nil, err
+	} else if len(results) != 1 {
+		// esdsが複数あるわけないのであるとしたらなんかおかしい
+		return nil, errors.New("too many esds")
+	} else {
+		esds := results[0].Payload.(*mp4.Esds)
+		for _, descriptor := range esds.Descriptors {
+			if descriptor.Tag == mp4.DecSpecificInfoTag {
+				ascDescriptor = &descriptor
+				break
+			}
+		}
+
+		if ascDescriptor == nil {
+			return nil, errors.New("no descriptor found")
+		}
 	}
 
-	v.index++
-	return &v.samples[v.index-1].Size
+	return ascDescriptor, nil
 }
