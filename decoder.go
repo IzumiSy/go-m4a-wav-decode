@@ -63,7 +63,12 @@ func main() {
 
 		frameSizes, mdatOffset = newFrameSizesByMeta(metaInfo)
 	} else {
-		frameSizes, mdatOffset, err = newFrameSizes(file)
+		audioTrack, err := getAudioTrack(file)
+		if err != nil {
+			panic(err)
+		}
+
+		frameSizes, mdatOffset, err = newFrameSizes(audioTrack, file)
 		if err != nil {
 			panic(err)
 		}
@@ -153,8 +158,7 @@ type frameSizes struct {
 	index   int
 }
 
-// stszのデータ部にはビッグエンディアンで4バイトごとのデータとして格納されている
-// binary.BigEndian.Uint32で変換してint64に変換することで10進数データとしてフレームサイズが計算できる。
+// イテレーションしてフレームのサイズを返すメソッド
 func (v *frameSizes) Next() *uint32 {
 	if len(v.samples) <= v.index {
 		return nil
@@ -165,36 +169,24 @@ func (v *frameSizes) Next() *uint32 {
 }
 
 // atom.Mp4Readerを用いてstszセクションのデータを読み取り、ヘッダをスキップしたデータ部をframeSizes構造体として抜き出す
-func newFrameSizes(reader io.ReadSeeker) (*frameSizes, uint64, error) {
-	info, err := mp4.Probe(reader)
-	if err != nil {
-		panic(err)
-	}
-
-	var targetTrack *mp4.Track
-	for _, track := range info.Tracks {
-		if track.Codec == mp4.CodecMP4A {
-			targetTrack = track
-			break
-		}
-	}
-	fmt.Printf("TrackID: %d\n", targetTrack.TrackID)
-	fmt.Printf("Codec: %d\n", targetTrack.Codec)
-
+func newFrameSizes(track *mp4.Track, reader io.ReadSeeker) (*frameSizes, uint64, error) {
 	var mdatOffset uint64 = 0
-	if results, err := mp4.ExtractBox(reader, nil, mp4.BoxPath{mp4.BoxTypeMdat()}); err != nil {
+	results, err := mp4.ExtractBox(reader, nil, mp4.BoxPath{mp4.BoxTypeMdat()})
+	if err != nil {
 		return nil, 0, err
-	} else if len(results) != 1 {
-		// mdatが1つ以上あるわけがないのであるとしたらなにかがおかしい
-		return nil, 0, errors.New("too many mdat")
-	} else {
-		// mdatのオフセットからさらにメタデータを含むヘッダサイズ分を飛ばして
-		// 実際のメディアデータのバイナリが始まる位置をmdatOffsetとする
-		mdatOffset = results[0].Offset + results[0].HeaderSize
 	}
 
+	// トラックIDに該当するindexにデータがなければおかしい
+	if uint32(len(results)) < track.TrackID-1 {
+		return nil, 0, errors.New("no stream data available on mdat")
+	}
+	stream := results[track.TrackID-1]
+
+	// mdatのオフセットからさらにメタデータを含むヘッダサイズ分を飛ばして
+	// 実際のメディアデータのバイナリが始まる位置をmdatOffsetとする
+	mdatOffset = stream.Offset + stream.HeaderSize
 	return &frameSizes{
-		samples: targetTrack.Samples,
+		samples: track.Samples,
 		index:   0,
 	}, mdatOffset, nil
 }
@@ -212,6 +204,30 @@ func newFrameSizesByMeta(meta metaInfo) (*frameSizes, uint64) {
 		samples: mp4.Samples(samples),
 		index:   0,
 	}, meta.Offset
+}
+
+// オーディオのstreamを取得する
+func getAudioTrack(reader io.ReadSeeker) (*mp4.Track, error) {
+	info, err := mp4.Probe(reader)
+	if err != nil {
+		panic(err)
+	}
+
+	var targetTrack *mp4.Track
+	for _, track := range info.Tracks {
+		if track.Codec == mp4.CodecMP4A {
+			targetTrack = track
+			break
+		}
+	}
+	if targetTrack == nil {
+		return nil, errors.New("no audio track available")
+	}
+
+	fmt.Printf("TrackID: %d\n", targetTrack.TrackID)
+	fmt.Printf("Codec: %d\n", targetTrack.Codec)
+
+	return targetTrack, nil
 }
 
 // esdsからASCの値を含むデスクリプタを取り出す
