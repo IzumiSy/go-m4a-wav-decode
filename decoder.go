@@ -46,7 +46,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("ASC: 0x%X 0x%X\n", ascDescriptor.Data[0], ascDescriptor.Data[1])
 
 	decoder := fdkaac.NewAacDecoder()
 	if err := decoder.InitRaw([]byte{

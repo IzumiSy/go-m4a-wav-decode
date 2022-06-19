@@ -29,10 +29,10 @@ func New(reader io.ReadSeeker) (*MP4Audio, error) {
 	}
 
 	return &MP4Audio{
+		MdatOffset: mdatOffset,
 		reader:     reader,
 		track:      audioTrack,
 		trackIndex: int(audioTrack.TrackID) - 1,
-		MdatOffset: mdatOffset,
 	}, nil
 }
 
