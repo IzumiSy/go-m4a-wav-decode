@@ -30,92 +30,53 @@ func New(reader io.ReadSeeker) (*MP4Audio, error) {
 
 // フレーム情報のイテレータを生成する
 func (mp4audio *MP4Audio) Frames() (*FrameIterator, error) {
-	stcoResults, err := mp4.ExtractBoxWithPayload(mp4audio.reader, nil, mp4.BoxPath{
-		mp4.BoxTypeMoov(),
-		mp4.BoxTypeTrak(),
-		mp4.BoxTypeMdia(),
-		mp4.BoxTypeMinf(),
-		mp4.BoxTypeStbl(),
-		mp4.BoxTypeStco(),
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	if len(stcoResults) < mp4audio.trackIndex {
-		return nil, errors.New("no stco atom available for audio track")
-	}
-	stco := stcoResults[mp4audio.trackIndex].Payload.(*mp4.Stco)
-
-	if len(stco.ChunkOffset) == 0 {
+	if len(mp4audio.track.Chunks) == 0 {
 		return nil, errors.New("no audio chunk available")
 	}
+	firstChunk := mp4audio.track.Chunks[0]
 
-	stscResults, err := mp4.ExtractBoxWithPayload(mp4audio.reader, nil, mp4.BoxPath{
-		mp4.BoxTypeMoov(),
-		mp4.BoxTypeTrak(),
-		mp4.BoxTypeMdia(),
-		mp4.BoxTypeMinf(),
-		mp4.BoxTypeStbl(),
-		mp4.BoxTypeStsc(),
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	if len(stscResults) < mp4audio.trackIndex {
-		return nil, errors.New("no stsc atom available for audio track")
-	}
-	stsc := stscResults[mp4audio.trackIndex].Payload.(*mp4.Stsc)
-
-	firstEntry := stsc.Entries[0]
 	return &FrameIterator{
 		samples:           mp4audio.track.Samples,
-		chunkOffsets:      stco.ChunkOffset,
-		stscEntries:       stsc.Entries,
 		sampleIndex:       0,
+		chunks:            mp4audio.track.Chunks,
 		chunkIndex:        0,
-		chunkSamples:      firstEntry.SamplesPerChunk,
-		chunkSampleIndex:  0,
-		chunkSampleOffset: uint64(stco.ChunkOffset[0]),
+		chunkSampleOffset: firstChunk.DataOffset,
 	}, nil
 }
 
 type FrameIterator struct {
 	samples           mp4.Samples
-	chunkOffsets      []uint32
-	stscEntries       []mp4.StscEntry
 	sampleIndex       int
-	chunkSamples      uint32
+	chunks            mp4.Chunks
 	chunkIndex        int
 	chunkSampleIndex  int
-	chunkSampleOffset uint64
+	chunkSampleOffset uint32
 }
 
 type Frame struct {
-	Offset uint64
-	Size   uint64
+	Offset uint32
+	Size   uint32
 }
 
 // イテレーションしてフレームの情報を返すメソッド
 func (v *FrameIterator) Next() *Frame {
-	if len(v.samples) <= v.sampleIndex || len(v.chunkOffsets) <= v.chunkIndex {
+	if len(v.samples) <= v.sampleIndex || len(v.chunks) <= v.chunkIndex {
 		return nil
 	}
 
 	offset := v.chunkSampleOffset
-	size := uint64(v.samples[v.sampleIndex].Size)
+	size := v.samples[v.sampleIndex].Size
 
 	// println(offset, v.chunkIndex, v.chunkSamples, v.chunkSampleIndex)
 
-	if v.chunkSamples <= uint32(v.chunkSampleIndex) {
+	currentChunk := v.chunks[v.chunkIndex]
+	if currentChunk.SamplesPerChunk <= uint32(v.chunkSampleIndex) {
 		v.chunkIndex++
-		v.chunkSamples = v.stscEntries[v.chunkIndex].SamplesPerChunk
 		v.chunkSampleIndex = 0
-		v.chunkSampleOffset = uint64(v.chunkOffsets[v.chunkIndex])
+		v.chunkSampleOffset = v.chunks[v.chunkIndex].DataOffset
 	} else {
 		v.chunkSampleIndex++
-		v.chunkSampleOffset += uint64(v.samples[v.sampleIndex].Size)
+		v.chunkSampleOffset += v.samples[v.sampleIndex].Size
 		v.sampleIndex++
 	}
 
