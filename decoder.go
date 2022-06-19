@@ -66,18 +66,14 @@ func main() {
 
 	var pcm []byte
 	go func() {
-		offset := uint32(mp4Audio.MdatOffset)
-
 		for {
 			nextFrame := frameIterator.Next()
 			if nextFrame == nil {
 				break
 			}
-			nextFrameSize := nextFrame.Size
-
 			// 計算されたフレームサイズのぶんだけmdatからデータを読み取る
-			part := make([]byte, nextFrameSize)
-			readCount, err := io.NewSectionReader(file, int64(offset), int64(nextFrameSize)).Read(part)
+			part := make([]byte, nextFrame.Size)
+			readCount, err := io.NewSectionReader(file, int64(nextFrame.Offset), int64(nextFrame.Size)).Read(part)
 			if err == io.EOF {
 				break
 			} else if err != nil {
@@ -89,7 +85,6 @@ func main() {
 				panic(err)
 			}
 
-			offset += nextFrameSize
 			if len(pcm) == 0 {
 				continue
 			}
