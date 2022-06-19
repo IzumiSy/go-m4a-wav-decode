@@ -1,4 +1,4 @@
-# go-aac-decode
+# go-m4a-wav-decode
 Example for M4A-WAV conversion using [IzumiSy/go-fdkaac](https://github.com/IzumiSy/go-fdkaac)
 
 ## build
