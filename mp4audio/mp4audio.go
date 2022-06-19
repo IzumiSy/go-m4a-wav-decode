@@ -59,6 +59,7 @@ type Frame struct {
 }
 
 // イテレーションしてフレームの情報を返すメソッド
+// チャンクのオフセットからフレームのオフセットを計算するあたりもよしなにやる
 func (v *FrameIterator) Next() *Frame {
 	if len(v.samples) <= v.sampleIndex || len(v.chunks) <= v.chunkIndex {
 		return nil
@@ -66,20 +67,21 @@ func (v *FrameIterator) Next() *Frame {
 
 	offset := v.chunkSampleOffset
 	size := v.samples[v.sampleIndex].Size
-
-	// println(offset, v.chunkIndex, v.chunkSamples, v.chunkSampleIndex)
-
 	currentChunk := v.chunks[v.chunkIndex]
-	if currentChunk.SamplesPerChunk <= uint32(v.chunkSampleIndex) {
+
+	if currentChunk.SamplesPerChunk <= uint32(v.chunkSampleIndex+1) {
+		if len(v.chunks) <= v.chunkIndex+1 {
+			return nil
+		}
 		v.chunkIndex++
 		v.chunkSampleIndex = 0
 		v.chunkSampleOffset = v.chunks[v.chunkIndex].DataOffset
 	} else {
 		v.chunkSampleIndex++
 		v.chunkSampleOffset += v.samples[v.sampleIndex].Size
-		v.sampleIndex++
 	}
 
+	v.sampleIndex++
 	return &Frame{
 		Offset: offset,
 		Size:   size,
